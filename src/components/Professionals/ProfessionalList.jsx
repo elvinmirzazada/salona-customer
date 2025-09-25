@@ -1,65 +1,90 @@
-import React from 'react';
-import { Box, Avatar, Typography, Card, CardContent, Grid } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Avatar, Typography, Card, CardContent, Grid, CircularProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
+import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 
-const professionals = [
-	{
-		id: 1,
-		name: 'Any professional',
-		rating: '4.9',
-		role: 'for maximum availability',
-		avatarUrl: null,
-	},
-	{
-		id: 2,
-		name: 'Hanna',
-		rating: '4.9',
-		role: 'Hairdresser',
-		avatarUrl: null,
-	},
-	{
-		id: 3,
-		name: 'Male Hairdresser',
-		rating: '4.5',
-		role: 'Hairdresser',
-		avatarUrl: null,
-	},
-	{
-		id: 4,
-		name: 'Hanna',
-		rating: '4.9',
-		role: 'Hairdresser',
-		avatarUrl: null,
-	},
-	{
-		id: 5,
-		name: 'Male Hairdresser',
-		rating: '4.5',
-		role: 'Hairdresser',
-		avatarUrl: null,
-	},
-	{
-		id: 6,
-		name: 'Hanna',
-		rating: '4.9',
-		role: 'Hairdresser',
-		avatarUrl: null,
-	},
-	{
-		id: 7,
-		name: 'Male Hairdresser',
-		rating: '4.5',
-		role: 'Hairdresser',
-		avatarUrl: null,
-	},
-];
+const ProfessionalList = ({ onProfessionalSelect, selectedProfessional, disabled }) => {
+	const [professionals, setProfessionals] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 
-const ProfessionalList = ({ onProfessionalSelect, selectedProfessional }) => {
+	// Get company_id from URL parameters
+	const location = useLocation();
+	const params = new URLSearchParams(location.search);
+	const companyId = params.get('company_id');
+
+	useEffect(() => {
+		const fetchProfessionals = async () => {
+			try {
+				if (!companyId) {
+					throw new Error('Company ID is required');
+				}
+				setLoading(true);
+				const response = await axios.get(`http://127.0.0.1:8000/api/v1/services/companies/${companyId}/users`);
+				console.log('Professionals API response:', response.data);
+
+				// Add "Any professional" option
+				const anyProfessional = {
+					id: 'any',
+					name: 'Any Professional',
+					role: 'for maximum availability',
+					rating: '5.0',
+					avatarUrl: null
+				};
+
+				// Transform the API response data
+				const transformedProfessionals = response.data.data.map(item => ({
+					id: item.user.id,
+					name: `${item.user.first_name} ${item.user.last_name}`,
+					role: item.role.charAt(0).toUpperCase() + item.role.slice(1),
+					rating: '4.9', // Default rating since it's not in the API response
+					avatarUrl: null,
+					email: item.user.email,
+					phone: item.user.phone,
+					status: item.status
+				})).filter(prof => prof.status === 'active'); // Only show active professionals
+
+				// Combine "Any professional" with the fetched professionals
+				setProfessionals([anyProfessional, ...transformedProfessionals]);
+				setError(null);
+			} catch (err) {
+				console.error('Error fetching professionals:', err);
+				setError(err.message || 'Failed to fetch professionals');
+				setProfessionals([]);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchProfessionals();
+	}, [companyId]);
+
+	if (loading) {
+		return (
+			<Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+				<CircularProgress sx={{ color: '#0D9488' }} />
+			</Box>
+		);
+	}
+
+	if (error) {
+		return (
+			<Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+				<Typography color="error">{error}</Typography>
+			</Box>
+		);
+	}
+
+	// Determine if any professional is selected
+	const isProfessionalSelected = !!selectedProfessional;
+
 	return (
 		<Box
 			sx={{
 				width: '100%',
 				overflow: 'hidden',
+				opacity: isProfessionalSelected ? 1 : 0.8, // Slightly reduce opacity when no professional is selected
 			}}
 		>
 			<Box
@@ -83,113 +108,88 @@ const ProfessionalList = ({ onProfessionalSelect, selectedProfessional }) => {
 					{professionals.map((professional) => (
 						<Grid
 							item
-							xs={8} // Reduced from 10 to 8 for smaller width
+							xs={12}
 							sm={6}
 							md={4}
 							key={professional.id}
-							sx={{
-								minWidth: { xs: '180px', sm: '180px' }, // Reduced from 260px to 200px
-								maxWidth: { xs: '200px', sm: 'none' }, // Reduced from 300px to 240px
-							}}
 						>
 							<Card
+								onClick={() => !disabled && onProfessionalSelect(professional)}
 								sx={{
-									height: { xs: '150px', sm: '210px' }, // Reduced height on mobile
-									cursor: 'pointer',
-									border:
-										selectedProfessional?.id === professional.id
-											? '2px solid #0D9488'
-											: '1px solid #e0e0e0',
-									backgroundColor:
-										selectedProfessional?.id === professional.id
-											? '#E6FFFA' // Light teal background for selected card
-											: 'white',
-									'&:hover': {
-										backgroundColor:
-											selectedProfessional?.id === professional.id
-												? '#E6FFFA'
-												: '#f8f8f8',
-									},
-									display: 'flex',
-									flexDirection: 'column',
+									cursor: disabled ? 'default' : 'pointer',
+									height: '100%',
+									bgcolor: selectedProfessional?.id === professional.id
+										? 'primary.50'
+										: isProfessionalSelected ? 'background.paper' : 'grey.50',
+									borderColor: selectedProfessional?.id === professional.id
+										? 'primary.main'
+										: isProfessionalSelected ? 'grey.300' : 'grey.200',
+									borderWidth: 1,
+									borderStyle: 'solid',
 									transition: 'all 0.2s ease-in-out',
-									'&:active': {
-										// Better touch feedback
-										transform: 'scale(0.98)',
+									opacity: selectedProfessional?.id === professional.id
+										? 1
+										: isProfessionalSelected ? 0.7 : 0.85,
+									'&:hover': {
+										borderColor: disabled ? 'grey.300' : 'primary.main',
+										boxShadow: disabled ? 0 : 1,
+										transform: disabled ? 'none' : 'translateY(-2px)',
+										opacity: disabled ? (isProfessionalSelected ? 0.7 : 0.85) : 1
 									},
 								}}
-								onClick={() => onProfessionalSelect(professional)}
 							>
-								<CardContent
-									sx={{
-										display: 'flex',
-										flexDirection: 'column',
-										alignItems: 'center',
-										justifyContent: 'center',
-										textAlign: 'center',
-										height: '100%',
-										p: { xs: 1.5, sm: 3 }, // Reduced padding on mobile
-									}}
-								>
-									<Avatar
-										sx={{
-											width: { xs: 50, sm: 80 }, // Reduced from 60px to 50px
-											height: { xs: 50, sm: 80 },
-											mb: { xs: 1, sm: 1.5 },
-											bgcolor: '#0D9488',
-										}}
-									>
-										{professional.avatarUrl ? (
-											<img
-												src={professional.avatarUrl}
-												alt={professional.name}
-											/>
-										) : (
-											professional.name[0]
-										)}
-									</Avatar>
-									<Typography
-										variant="h6"
-										gutterBottom
-										sx={{
-											fontSize: { xs: '0.875rem', sm: '1.25rem' }, // Reduced font size
-											mb: 0.5,
-										}}
-									>
-										{professional.name}
-									</Typography>
-									<Typography
-										variant="body2"
-										color="text.secondary"
-										sx={{
-											mb: 1,
-											fontSize: { xs: '0.75rem', sm: '0.875rem' }, // Reduced font size
-										}}
-									>
-										{professional.role}
-									</Typography>
-									<Box
-										sx={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 0.5,
-											color: '#0D9488',
-										}}
-									>
-										<StarIcon
+								<CardContent>
+									<Box display="flex" alignItems="center" mb={2}>
+										<Avatar
+											src={professional.avatarUrl}
 											sx={{
-												fontSize: { xs: '0.75rem', sm: '0.875rem' },
-											}}
-										/>
-										<Typography
-											variant="body2"
-											sx={{
-												fontSize: { xs: '0.75rem', sm: '0.875rem' },
+												width: 56,
+												height: 56,
+												bgcolor: professional.id === 'any' ? 'primary.main' : 'secondary.main',
+												mr: 2,
+												opacity: selectedProfessional?.id === professional.id ? 1 : 0.85
 											}}
 										>
-											{professional.rating}
-										</Typography>
+											{professional.name.charAt(0)}
+										</Avatar>
+										<Box>
+											<Typography
+												variant="h6"
+												gutterBottom
+												sx={{
+													color: isProfessionalSelected && selectedProfessional?.id !== professional.id
+														? 'text.secondary'
+														: 'text.primary'
+												}}
+											>
+												{professional.name}
+											</Typography>
+											<Typography
+												variant="body2"
+												color="text.secondary"
+												sx={{
+													opacity: isProfessionalSelected && selectedProfessional?.id !== professional.id
+														? 0.8
+														: 1
+												}}
+											>
+												{professional.role}
+											</Typography>
+										</Box>
 									</Box>
+									{professional.rating && (
+										<Box display="flex" alignItems="center">
+											<StarIcon sx={{
+												color: 'warning.main',
+												fontSize: '1rem',
+												mr: 0.5,
+												opacity: selectedProfessional?.id === professional.id ? 1 : 0.8
+											}} />
+											<Typography variant="body2" color="text.secondary">
+												{professional.rating}
+											</Typography>
+										</Box>
+									)}
 								</CardContent>
 							</Card>
 						</Grid>

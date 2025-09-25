@@ -8,44 +8,82 @@ import {
   Box,
   Typography,
   IconButton,
-  Divider
+  Divider,
+  CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import GoogleIcon from '@mui/icons-material/Google';
 import FacebookIcon from '@mui/icons-material/Facebook';
 
-const BookingFormModal = ({ open, onClose, onSubmit }) => {
+const BookingFormModal = ({ open, onClose, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
     email: '',
-    name: '',
-    phone: ''
+    firstName: '',
+    lastName: '',
+    phone: '',
+    notes: ''
   });
+  const [formErrors, setFormErrors] = useState({});
+
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.email) {
+      errors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Email is invalid';
+    }
+    if (!formData.firstName) {
+      errors.firstName = 'First name is required';
+    }
+    if (!formData.lastName) {
+      errors.lastName = 'Last name is required';
+    }
+    if (!formData.phone) {
+      errors.phone = 'Phone number is required';
+    }
+    return errors;
+  };
 
   const handleInputChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    // Clear error when user types
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: ''
+      });
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    const errors = validateForm();
+    if (Object.keys(errors).length === 0) {
+      onSubmit(formData);
+    } else {
+      setFormErrors(errors);
+    }
   };
 
   return (
     <Dialog 
       open={open} 
-      onClose={onClose}
+      onClose={!isLoading && onClose}
       maxWidth="sm"
       fullWidth
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Complete your booking</Typography>
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
+          {!isLoading && (
+            <IconButton onClick={onClose}>
+              <CloseIcon />
+            </IconButton>
+          )}
         </Box>
       </DialogTitle>
       <DialogContent>
@@ -55,6 +93,7 @@ const BookingFormModal = ({ open, onClose, onSubmit }) => {
             variant="outlined"
             startIcon={<FacebookIcon />}
             sx={{ mb: 2 }}
+            disabled={isLoading}
           >
             Continue with Facebook
           </Button>
@@ -64,6 +103,7 @@ const BookingFormModal = ({ open, onClose, onSubmit }) => {
             variant="outlined"
             startIcon={<GoogleIcon />}
             sx={{ mb: 3 }}
+            disabled={isLoading}
           >
             Continue with Google
           </Button>
@@ -79,19 +119,38 @@ const BookingFormModal = ({ open, onClose, onSubmit }) => {
               required
               value={formData.email}
               onChange={handleInputChange}
+              error={!!formErrors.email}
+              helperText={formErrors.email}
               sx={{ mb: 2 }}
+              disabled={isLoading}
             />
             
-            <TextField
-              fullWidth
-              name="name"
-              label="Full name"
-              required
-              value={formData.name}
-              onChange={handleInputChange}
-              sx={{ mb: 2 }}
-            />
-            
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                fullWidth
+                name="firstName"
+                label="First name"
+                required
+                value={formData.firstName}
+                onChange={handleInputChange}
+                error={!!formErrors.firstName}
+                helperText={formErrors.firstName}
+                disabled={isLoading}
+              />
+
+              <TextField
+                fullWidth
+                name="lastName"
+                label="Last name"
+                required
+                value={formData.lastName}
+                onChange={handleInputChange}
+                error={!!formErrors.lastName}
+                helperText={formErrors.lastName}
+                disabled={isLoading}
+              />
+            </Box>
+
             <TextField
               fullWidth
               name="phone"
@@ -99,22 +158,38 @@ const BookingFormModal = ({ open, onClose, onSubmit }) => {
               required
               value={formData.phone}
               onChange={handleInputChange}
+              error={!!formErrors.phone}
+              helperText={formErrors.phone}
               sx={{ mb: 3 }}
+              disabled={isLoading}
+            />
+
+            <TextField
+              fullWidth
+              name="notes"
+              label="Additional notes (optional)"
+              multiline
+              rows={3}
+              value={formData.notes}
+              onChange={handleInputChange}
+              sx={{ mb: 3 }}
+              disabled={isLoading}
+              placeholder="Any special requests or information for your appointment"
             />
 
             <Button
               type="submit"
-              fullWidth
               variant="contained"
-              size="large"
-              sx={{ 
-                bgcolor: '#0D9488',
-                '&:hover': {
-                  bgcolor: '#0F766E'
-                }
-              }}
+              color="primary"
+              fullWidth
+              disabled={isLoading}
+              sx={{ height: 48 }}
             >
-              Complete Booking
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Complete Booking'
+              )}
             </Button>
           </form>
         </Box>

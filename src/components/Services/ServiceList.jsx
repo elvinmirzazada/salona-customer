@@ -1,61 +1,50 @@
-import React, { useState } from 'react';
-import { Box, Typography, Paper, IconButton, Tabs, Tab } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Paper, IconButton, Tabs, Tab, CircularProgress } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
-
-const services = [
-	{
-		id: 1,
-		title: "Men's Hairdresser | Men's Hairdresser",
-		subtitle: "Haircut for men (wash + blow dry) | Men's haircut (wash + blow dry)",
-		duration: "40 mins - 1 hr",
-		price: "€36",
-		clientType: "Male only",
-		category: "Haircut"
-	},
-	{
-		id: 2,
-		title: "Beard trimming, neck cleaning | Beard trimming, neck cleaning",
-		duration: "30 mins",
-		price: "€20",
-		clientType: "Male only",
-		category: "Beard"
-	},
-	{
-		id: 3,
-		title: "Hair toning | Hair coloring",
-		duration: "1 hr",
-		price: "€41",
-		category: "Color"
-	},
-	{
-		id: 4,
-		title: "Hair toning+cutting | Hair coloring + haircut",
-		duration: "1 hr",
-		price: "€76",
-		description: "Tinting refreshes the natural hair color and reduces the visibility of gray hair.",
-		category: "Color"
-	},
-	{
-		id: 5,
-		title: "Hair toning+cutting | Hair coloring + haircut",
-		duration: "1 hr",
-		price: "€76",
-		description: "Tinting refreshes the natural hair color and reduces the visibility of gray hair.",
-		category: "Color"
-	},
-	{
-		id: 6,
-		title: "Hair toning+cutting | Hair coloring + haircut",
-		duration: "1 hr",
-		price: "€76",
-		description: "Tinting refreshes the natural hair color and reduces the visibility of gray hair.",
-		category: "Color"
-	}
-];
+import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 
 const ServiceList = ({ onServiceSelect, selectedServices = [] }) => {
 	const [selectedCategory, setSelectedCategory] = useState('all');
+	const [services, setServices] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+	
+	// Get company_id from URL parameters
+	const location = useLocation();
+	const params = new URLSearchParams(location.search);
+	const companyId = params.get('company_id');
+
+	useEffect(() => {
+		const fetchServices = async () => {
+			try {
+				if (!companyId) {
+					throw new Error('Company ID is required');
+				}
+				const response = await axios.get(`http://127.0.0.1:8000/api/v1/services/companies/${companyId}/services`);
+				// Transform the response data into a flat array with category information
+				const transformedServices = response.data.data.flatMap(category =>
+					category.services.map(service => ({
+						...service,
+						category: category.name,
+						title: service.name,
+						duration: `${service.duration} min`,
+						price: service.discount_price ? `€${service.discount_price}` : `€${service.price}`,
+						description: service.additional_info
+					}))
+				);
+				setServices(transformedServices);
+				setError(null);
+			} catch (err) {
+				setError(err.message);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchServices();
+	}, [companyId]);
 
 	// Get unique categories from services
 	const categories = ['all', ...new Set(services.map(service => service.category))];
@@ -80,6 +69,22 @@ const ServiceList = ({ onServiceSelect, selectedServices = [] }) => {
 		// Call the parent's onServiceSelect with updated selection
 		onServiceSelect(newSelected);
 	};
+
+	if (loading) {
+		return (
+			<Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+				<CircularProgress sx={{ color: '#0D9488' }} />
+			</Box>
+		);
+	}
+
+	if (error) {
+		return (
+			<Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+				<Typography color="error">{error}</Typography>
+			</Box>
+		);
+	}
 
 	return (
 		<Box>
@@ -160,49 +165,27 @@ const ServiceList = ({ onServiceSelect, selectedServices = [] }) => {
 										mb: { xs: 4, sm: 0 }
 									}}
 								>
-									{service.subtitle ? (
-										<>
-											<Typography 
-												variant="h6" 
-												sx={{
-													fontSize: { xs: '1rem', sm: '1.25rem' },
-													lineHeight: 1.3,
-													mb: 1
-												}}
-											>
-												{service.title}
-											</Typography>
-											<Typography 
-												color="text.secondary"
-												sx={{
-													fontSize: { xs: '0.875rem', sm: '1rem' },
-													mb: 1
-												}}
-											>
-												{service.subtitle}
-											</Typography>
-										</>
-									) : (
-										<Typography 
-											variant="h6" 
-											sx={{
-												fontSize: { xs: '1rem', sm: '1.25rem' },
-												lineHeight: 1.3,
-												mb: 1
-											}}
-										>
-											{service.title}
-										</Typography>
-									)}
-									<Typography 
+									<Typography
+										variant="h6"
+										sx={{
+											fontSize: { xs: '1rem', sm: '1.25rem' },
+											lineHeight: 1.3,
+											mb: 1
+										}}
+									>
+										{service.title}
+									</Typography>
+
+									<Typography
 										color="text.secondary" 
 										sx={{ 
 											fontSize: '0.875rem',
 											mb: { xs: 1, sm: 0 }
 										}}
 									>
-										{service.duration} {service.clientType && `• ${service.clientType}`}
+										{service.duration} • {service.category}
 									</Typography>
+
 									{service.description && (
 										<Typography 
 											color="text.secondary" 
@@ -211,7 +194,6 @@ const ServiceList = ({ onServiceSelect, selectedServices = [] }) => {
 												fontSize: { xs: '0.75rem', sm: '0.875rem' },
 												lineHeight: { xs: 1.4, sm: 1.5 },
 												mb: { xs: 2, sm: 0 },
-												// Remove display none
 												maxHeight: { xs: '3.6em', sm: 'none' },
 												overflow: { xs: 'hidden', sm: 'visible' },
 												WebkitLineClamp: { xs: 3, sm: 'unset' },
@@ -244,7 +226,7 @@ const ServiceList = ({ onServiceSelect, selectedServices = [] }) => {
 											fontSize: { xs: '1rem', sm: '1.25rem' }
 										}}
 									>
-										from {service.price}
+										{service.price}
 									</Typography>
 									<IconButton 
 										size="small" 
